@@ -114,6 +114,22 @@ def main():
     print("\n", split.to_string())
     split.to_csv(OUT / "metrics_by_day_type.csv")
 
+    # Week after each clock change: the lags are fixed UTC shifts, so for up to 7 days
+    # after a change they point at a different local clock time than the target
+    offset = np.asarray(yt.index.tz_convert("Europe/London").map(lambda t: t.utcoffset()))
+    changes = yt.index[1:][offset[1:] != offset[:-1]]
+    after = np.zeros(len(yt), dtype=bool)
+    for c in changes:
+        after |= (yt.index >= c) & (yt.index < c + pd.Timedelta(days=7))
+    base_err, model_err = np.abs(yt - preds[list(preds)[0]]), np.abs(yt - best)
+    clock = pd.DataFrame({
+        "Baseline MAE": [base_err[after].mean(), base_err[~after].mean()],
+        "Model MAE": [model_err[after].mean(), model_err[~after].mean()]},
+        index=["Week after a clock change", "All other days"]).round(0)
+    print(f"\nclock changes in test period: {[f'{c:%Y-%m-%d}' for c in changes]}")
+    print(clock.to_string())
+    clock.to_csv(OUT / "metrics_clock_change.csv")
+
     # Monthly MAE: baseline vs model
     local_month = yt.index.tz_convert("Europe/London").tz_localize(None).to_period("M")
     monthly = pd.DataFrame({

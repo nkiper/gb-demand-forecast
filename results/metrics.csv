@@ -1,4 +1,4 @@
 ,MAE (MW),RMSE (MW),MAPE (%),MAE vs baseline
 Baseline: same half-hour last week,2140.5,2893.3,8.4,-
 Model without weather,1564.1,2079.7,6.3,-27%
-Model with weather,973.9,1284.7,3.9,-55%
+Model with weather,975.4,1282.7,3.9,-54%

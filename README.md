@@ -2,7 +2,7 @@
 
 A day-ahead forecast of half-hourly national electricity demand in Great Britain, built from public data: NESO demand records and ERA5 reanalysis weather from Open-Meteo.
 
-On a held-out year (19 September 2025 to 18 September 2026), a gradient-boosted tree model with calendar, lagged-demand and weather features reduces the mean absolute error by **55%** compared with a simple "same half-hour last week" baseline (**0.97 GW vs 2.14 GW**, MAPE **3.9% vs 8.4%**). This uses observed rather than forecast weather, so it is an upper bound on real-world skill (see [Limitations](#limitations)).
+On a held-out year (19 September 2025 to 18 September 2026), a gradient-boosted tree model with calendar, lagged-demand and weather features reduces the mean absolute error by **54%** compared with a simple "same half-hour last week" baseline (**0.98 GW vs 2.14 GW**, MAPE **3.9% vs 8.4%**). This uses observed rather than forecast weather, so it is an upper bound on real-world skill (see [Limitations](#limitations)).
 
 ## Results
 
@@ -10,11 +10,11 @@ On a held-out year (19 September 2025 to 18 September 2026), a gradient-boosted 
 |---|---:|---:|---:|---:|
 | Baseline: same half-hour last week | 2,141 | 2,893 | 8.4% | |
 | Gradient-boosted model, calendar and lags only | 1,564 | 2,080 | 6.3% | -27% |
-| Gradient-boosted model, with weather | **974** | **1,285** | **3.9%** | **-55%** |
+| Gradient-boosted model, with weather | **975** | **1,283** | **3.9%** | **-54%** |
 
 The comparison without weather separates the two sources of improvement: a better use of calendar and recent demand accounts for about half of the gain, and weather for the rest.
 
-The model improves on the baseline in every month of the test year. Errors are higher on bank holidays and over Christmas (1.65 GW vs 0.95 GW on normal days), where there is little training data.
+The model improves on the baseline in every month of the test year. Errors are higher on bank holidays and over Christmas (1.66 GW vs 0.95 GW on normal days), where there is little training data.
 
 ![Error by month](results/mae_by_month.png)
 
@@ -53,6 +53,7 @@ Exploration before modelling pointed to three effects the model needs to capture
 ## Limitations
 
 - **Observed instead of forecast weather.** The model uses reanalysis weather for the target day, which a real day-ahead forecast would not have. Real weather forecasts carry errors, so operational accuracy would be lower. The next step is to retrain and evaluate on archived weather forecasts (Open-Meteo provides historical forecast data).
+- **Lags across clock changes.** The demand lags are fixed shifts in UTC, so for a week after each clock change, "the same half-hour last week" is an hour off in local clock time. On the test year, the baseline is about 16% worse in those weeks, while the model is barely affected (about 1%), because it can rely on the local time-of-day feature instead. Computing lags in local time would remove the effect.
 - **Simple weather proxy.** An unweighted average of four cities is a rough stand-in for GB-wide conditions. Population- or demand-weighted averages over more locations would likely help, especially for solar.
 - **Weak baseline only.** The baseline is deliberately naive. A fairer benchmark would be NESO's own published day-ahead demand forecast, which I have not compared against yet.
 - **Point forecasts only.** Trading decisions need uncertainty as well as a central estimate. Quantile loss would give prediction intervals with little extra work.
