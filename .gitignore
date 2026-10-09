@@ -1,0 +1,5 @@
+data/*.csv
+_to_delete/
+.venv/
+__pycache__/
+.DS_Store
