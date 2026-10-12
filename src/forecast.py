@@ -51,6 +51,17 @@ def make_features(df: pd.DataFrame) -> pd.DataFrame:
     return X
 
 
+def seasonal_average(X, y, train, test) -> pd.Series:
+    """Climatology baseline: mean training demand for the same half-hour, day type
+    (working day vs weekend or bank holiday) and calendar month."""
+    month = pd.Series(X.index.tz_convert("Europe/London").month, index=X.index)
+    day_off = (X["day_of_week"] >= 5) | (X["is_holiday"] == 1)
+    keys = [X["half_hour"], day_off, month]
+    table = y[train].groupby([k[train] for k in keys]).mean()
+    lookup = list(zip(*(k[test] for k in keys)))
+    return pd.Series([table[key] for key in lookup], index=X.index[test])
+
+
 def metrics(y, yhat) -> dict:
     err = y - yhat
     return {"MAE (MW)": np.abs(err).mean(),
@@ -86,7 +97,8 @@ def main():
     print(f"train {X.index[train].min():%Y-%m-%d} to {X.index[train].max():%Y-%m-%d} ({train.sum()} rows)")
     print(f"test  {X.index[test].min():%Y-%m-%d} to {X.index[test].max():%Y-%m-%d} ({test.sum()} rows)")
 
-    preds = {"Baseline: same half-hour last week": X.loc[test, "demand_lag_7d"]}
+    preds = {"Baseline: same half-hour last week": X.loc[test, "demand_lag_7d"],
+             "Baseline: seasonal average": seasonal_average(X, y, train, test)}
     feature_sets = {"Model without weather": CALENDAR + LAGS,
                     "Model with weather": CALENDAR + LAGS + WEATHER}
     models = {}
@@ -98,9 +110,10 @@ def main():
 
     yt = y[test]
     table = pd.DataFrame({k: metrics(yt, v) for k, v in preds.items()}).T.round(1)
-    base_mae = table.iloc[0]["MAE (MW)"]
-    table["MAE vs baseline"] = (100 * (table["MAE (MW)"] / base_mae - 1)).round(0).astype(int).astype(str) + "%"
-    table.loc[table.index[0], "MAE vs baseline"] = "-"
+    for col, ref in [("vs weekly baseline", 0), ("vs seasonal average", 1)]:
+        base_mae = table.iloc[ref]["MAE (MW)"]
+        table[col] = (100 * (table["MAE (MW)"] / base_mae - 1)).round(0).astype(int).astype(str) + "%"
+        table.loc[table.index[:2], col] = "-"
     print("\n", table.to_string())
     table.to_csv(OUT / "metrics.csv")
 
